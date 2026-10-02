@@ -1,0 +1,668 @@
+                      <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diet Calculator</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f3f6f4;
+    --surface: #fff;
+    --surface-2: #eef5f1;
+    --text-primary: #1f2d27;
+    --text-secondary: #5b6b63;
+    --text-muted: #7a8a82;
+    --border: #cfd8d3;
+    --hairline: #e3e9e6;
+    --accent: #2e8b57;
+    --accent-hover: #267349;
+    --error: #b3261e;
+    --shadow: 0 4px 20px rgba(0,0,0,.08);
+
+    /* Chart colors (colorblind-checked as a set) */
+    --series-1: #6b8cae;  /* protein - dusty blue */
+    --series-2: #c96f4a;  /* carbs - terracotta */
+    --series-3: #a8c09a;  /* fat - sage */
+    --bar-muted: #c9d6e6;
+    --status-good: #6b9163;      /* normal - deep sage */
+    --status-warning: #a9c1dc;   /* underweight - powder blue */
+    --status-serious: #eeb896;   /* overweight - peach */
+    --status-critical: #a8485a;  /* obese - rosewood */
+
+    /* Sticker & food-card tints */
+    --tint-green: #e3ecdc;   /* sage */
+    --tint-orange: #fbe3d4;  /* peach */
+    --tint-blue: #dfe7f0;    /* powder blue */
+    --tint-pink: #f7dfe2;    /* blush */
+    --tint-yellow: #f8eed3;  /* butter */
+    --sticker-edge: #fff;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #262624;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --border: #383835;
+    --hairline: #2c2c2a;
+    --accent: #2e8b57;
+    --accent-hover: #37a266;
+    --error: #f28b82;
+    --shadow: 0 4px 20px rgba(0,0,0,.5);
+
+    --series-1: #7a9cc6;
+    --series-2: #d98260;
+    --series-3: #b8d4a8;
+    --bar-muted: #3e5270;
+
+    --tint-green: #2e3a2b;
+    --tint-orange: #45302a;
+    --tint-blue: #2a3340;
+    --tint-pink: #45292e;
+    --tint-yellow: #403723;
+    --sticker-edge: #383835;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--page); color: var(--text-primary); margin: 0; padding: 24px;
+    display: flex; justify-content: center;
+  }
+  .card {
+    background: var(--surface); max-width: 520px; width: 100%; padding: 28px;
+    border-radius: 14px; box-shadow: var(--shadow);
+  }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  p.sub { margin: 0 0 20px; color: var(--text-secondary); }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin: 12px 0 4px; }
+  input, select {
+    width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;
+    background: var(--surface); color: var(--text-primary);
+  }
+  button {
+    margin-top: 20px; width: 100%; padding: 12px; font-size: 1rem; font-weight: 600;
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { background: var(--accent-hover); }
+  button.theme-toggle {
+    margin: 0; width: auto; padding: 8px 12px; font-size: .85rem; white-space: nowrap;
+    background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border);
+  }
+  button.theme-toggle:hover { background: var(--hairline); }
+  .label-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+  .unit-switch {
+    display: flex; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  }
+  .unit-switch button {
+    margin: 0; width: auto; padding: 3px 8px; font-size: .75rem; border-radius: 0;
+    background: var(--surface); color: var(--text-secondary);
+  }
+  .unit-switch button:hover { background: var(--surface-2); }
+  .unit-switch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .ftin { display: flex; gap: 6px; }
+  .ftin[hidden] { display: none; }
+  .error { color: var(--error); margin-top: 12px; font-size: .9rem; }
+  #results { margin-top: 24px; display: none; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat { background: var(--surface-2); border-radius: 10px; padding: 12px; }
+  .stat span { display: block; font-size: .8rem; color: var(--text-secondary); }
+  .stat strong { font-size: 1.3rem; }
+  h2 { font-size: 1.1rem; margin: 20px 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 8px; text-align: left; border-bottom: 1px solid var(--hairline); }
+  .meal-table td:not(:first-child) { font-variant-numeric: tabular-nums; }
+  .note { font-size: .78rem; color: var(--text-muted); margin-top: 16px; }
+
+  .chart-sub { margin: -4px 0 10px; font-size: .8rem; color: var(--text-secondary); }
+
+  /* Calorie bars */
+  .bar-row {
+    display: grid; grid-template-columns: 104px 1fr 76px; align-items: center;
+    gap: 8px; padding: 5px 0; font-size: .85rem;
+  }
+  .bar-track { height: 18px; }
+  .bar { height: 100%; border-radius: 0 4px 4px 0; background: var(--series-1); }
+  .bar.muted { background: var(--bar-muted); }
+  .bar-row:hover .bar { filter: brightness(1.1); }
+  .bar-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* Macro stacked bar */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .85rem; margin-bottom: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .stack { display: flex; gap: 2px; }
+  .stack-col { min-width: 0; }
+  .stack-seg { height: 26px; }
+  .stack-col:first-child .stack-seg { border-radius: 4px 0 0 4px; }
+  .stack-col:last-child .stack-seg { border-radius: 0 4px 4px 0; }
+  .stack-col:hover .stack-seg { filter: brightness(1.1); }
+  .stack-label { font-size: .78rem; color: var(--text-secondary); margin-top: 6px; }
+
+  /* BMI gauge */
+  .gauge { position: relative; padding-top: 30px; }
+  .gauge-bands { display: flex; gap: 2px; }
+  .gauge-band { min-width: 0; }
+  .gauge-band > div { height: 10px; }
+  .gauge-band:first-child > div { border-radius: 4px 0 0 4px; }
+  .gauge-band:last-child > div { border-radius: 0 4px 4px 0; }
+  .gauge-band span { display: block; font-size: .72rem; color: var(--text-secondary); margin-top: 6px; }
+  .gauge-marker {
+    position: absolute; top: 0; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; pointer-events: none;
+  }
+  .gauge-marker b { font-size: .85rem; }
+  .gauge-marker i {
+    width: 3px; height: 22px; margin-top: 2px; background: var(--text-primary);
+    border-radius: 2px; box-shadow: 0 0 0 2px var(--surface);
+  }
+
+  /* Stickers */
+  .stickers { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .sticker {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+    font-size: .82rem; font-weight: 600; border-radius: 999px;
+    border: 2px solid var(--sticker-edge); box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    transform: rotate(var(--tilt, 0deg)); transition: transform .15s;
+  }
+  .sticker:hover { transform: rotate(0deg) scale(1.06); }
+  .sticker .emoji { font-size: 1.1rem; }
+  .t-green  { background: var(--tint-green); }
+  .t-orange { background: var(--tint-orange); }
+  .t-blue   { background: var(--tint-blue); }
+  .t-pink   { background: var(--tint-pink); }
+  .t-yellow { background: var(--tint-yellow); }
+
+  /* Nut chart */
+  .nut-row {
+    display: grid; grid-template-columns: 118px 1fr 64px; align-items: center;
+    gap: 8px; padding: 5px 0; font-size: .85rem;
+  }
+  .nut-name { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .pick {
+    font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+    background: var(--tint-yellow); border: 1px solid var(--sticker-edge);
+  }
+  .nut-bar { display: flex; gap: 2px; height: 18px; }
+  .nut-bar div:last-child { border-radius: 0 4px 4px 0; }
+  .nut-row:hover .nut-bar { filter: brightness(1.1); }
+
+  /* Meal idea cards */
+  .food-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .food-card { border-radius: 12px; padding: 12px; }
+  .food-card h3 { margin: 0 0 6px; font-size: .95rem; }
+  .food-card ul { margin: 0; padding-left: 18px; font-size: .82rem; line-height: 1.5; }
+  @media (max-width: 460px) { .food-grid { grid-template-columns: 1fr; } }
+
+  #tip {
+    position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface);
+    font-size: .8rem; padding: 6px 9px; border-radius: 6px; white-space: nowrap; z-index: 10;
+  }
+</style>
+<script>
+  // Apply the saved (or system) theme before the page paints to avoid a flash
+  (function () {
+    let theme = null;
+    try { theme = localStorage.getItem("theme"); } catch (e) {}
+    if (!theme) theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <h1>Diet Calculator</h1>
+      <p class="sub">Estimate your daily calories and macros.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button"></button>
+  </div>
+
+  <div class="row">
+    <div>
+      <label for="sex">Sex</label>
+      <select id="sex">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+    </div>
+    <div>
+      <label for="age">Age (years)</label>
+      <input id="age" type="number" min="15" max="100" value="30">
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label for="weight">Weight (kg)</label>
+      <input id="weight" type="number" min="30" max="300" step="0.1" value="70">
+    </div>
+    <div>
+      <div class="label-row">
+        <label for="height" id="heightLabel">Height (cm)</label>
+        <div class="unit-switch" role="group" aria-label="Height unit">
+          <button type="button" data-unit="cm" aria-pressed="true">cm</button>
+          <button type="button" data-unit="ftin" aria-pressed="false">ft/in</button>
+        </div>
+      </div>
+      <div id="heightCm">
+        <input id="height" type="number" min="120" max="230" value="170">
+      </div>
+      <div id="heightFtIn" class="ftin" hidden>
+        <input id="heightFt" type="number" min="3" max="7" placeholder="ft" aria-label="Feet">
+        <input id="heightIn" type="number" min="0" max="11.9" step="0.5" placeholder="in" aria-label="Inches">
+      </div>
+    </div>
+  </div>
+
+  <label for="activity">Activity level</label>
+  <select id="activity">
+    <option value="1.2">Sedentary (little or no exercise)</option>
+    <option value="1.375">Light (1–3 days/week)</option>
+    <option value="1.55" selected>Moderate (3–5 days/week)</option>
+    <option value="1.725">Active (6–7 days/week)</option>
+    <option value="1.9">Very active (hard exercise / physical job)</option>
+  </select>
+
+  <label for="goal">Goal</label>
+  <select id="goal">
+    <option value="-500">Lose weight (~0.5 kg/week)</option>
+    <option value="-250">Lose weight slowly (~0.25 kg/week)</option>
+    <option value="0" selected>Maintain weight</option>
+    <option value="250">Gain weight slowly (~0.25 kg/week)</option>
+    <option value="500">Gain weight (~0.5 kg/week)</option>
+  </select>
+
+  <label for="meals">Meals per day</label>
+  <select id="meals">
+    <option value="1,0">1 meal</option>
+    <option value="2,0">2 meals</option>
+    <option value="2,1">2 meals + 1 snack</option>
+    <option value="3,0" selected>3 meals</option>
+    <option value="3,1">3 meals + 1 snack</option>
+    <option value="3,2">3 meals + 2 snacks</option>
+    <option value="4,0">4 meals</option>
+    <option value="5,0">5 small meals</option>
+    <option value="6,0">6 small meals</option>
+  </select>
+
+  <button id="calc">Calculate</button>
+  <div class="error" id="error"></div>
+
+  <div id="results">
+    <div class="stickers" id="stickers"></div>
+    <div class="stats">
+      <div class="stat"><span>BMI</span><strong id="bmi"></strong> <small id="bmiCat"></small></div>
+      <div class="stat"><span>BMR (at rest)</span><strong id="bmr"></strong></div>
+      <div class="stat"><span>Maintenance (TDEE)</span><strong id="tdee"></strong></div>
+      <div class="stat"><span>Daily target</span><strong id="target"></strong></div>
+    </div>
+
+    <h2>Daily calories</h2>
+    <div id="calChart"></div>
+
+    <h2>Where your calories come from</h2>
+    <p class="chart-sub">Share of your daily target by macro</p>
+    <div class="legend" id="macroLegend"></div>
+    <div class="stack" id="macroStack"></div>
+
+    <h2>Your BMI</h2>
+    <div class="gauge" id="bmiGauge"></div>
+
+    <h2>Suggested daily macros</h2>
+    <table>
+      <tr><th>Macro</th><th>Grams</th><th>Calories</th></tr>
+      <tr><td>Protein (30%)</td><td id="pG"></td><td id="pC"></td></tr>
+      <tr><td>Carbs (40%)</td><td id="cG"></td><td id="cC"></td></tr>
+      <tr><td>Fat (30%)</td><td id="fG"></td><td id="fC"></td></tr>
+    </table>
+
+    <h2>Per meal</h2>
+    <p class="chart-sub" id="mealSub"></p>
+    <table class="meal-table">
+      <thead><tr><th></th><th>Calories</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr></thead>
+      <tbody id="mealRows"></tbody>
+    </table>
+
+    <h2>Meal ideas for your goal</h2>
+    <div class="food-grid" id="foodIdeas"></div>
+
+    <h2>Nuts compared</h2>
+    <p class="chart-sub" id="nutSub"></p>
+    <div class="legend" id="nutLegend"></div>
+    <div id="nutChart"></div>
+
+    <p class="note">Uses the Mifflin-St Jeor equation. Results are estimates, not medical advice —
+      consult a doctor or dietitian before making major diet changes.</p>
+  </div>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString();
+
+  function updateThemeButton() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    $("themeToggle").textContent = dark ? "☀️ Light mode" : "🌙 Dark mode";
+    $("themeToggle").setAttribute("aria-pressed", dark);
+  }
+  $("themeToggle").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    updateThemeButton();
+  });
+  updateThemeButton();
+
+  // Height unit switch: cm <-> feet & inches
+  const CM_PER_INCH = 2.54;
+  let heightUnit = "cm";
+
+  function heightInCm() {
+    if (heightUnit === "cm") return parseFloat($("height").value);
+    const ft = parseFloat($("heightFt").value) || 0;
+    const inches = parseFloat($("heightIn").value) || 0;
+    return (ft * 12 + inches) * CM_PER_INCH;
+  }
+
+  function setHeightUnit(unit) {
+    if (unit === heightUnit) return;
+    const cm = heightInCm();
+    heightUnit = unit;
+    // Carry the current value over to the other unit
+    if (cm > 0) {
+      if (unit === "cm") {
+        $("height").value = Math.round(cm);
+      } else {
+        const totalIn = Math.round(cm / CM_PER_INCH);
+        $("heightFt").value = Math.floor(totalIn / 12);
+        $("heightIn").value = totalIn % 12;
+      }
+    }
+    const ftin = unit === "ftin";
+    $("heightCm").hidden = ftin;
+    $("heightFtIn").hidden = !ftin;
+    $("heightLabel").textContent = ftin ? "Height (ft, in)" : "Height (cm)";
+    $("heightLabel").htmlFor = ftin ? "heightFt" : "height";
+    document.querySelectorAll(".unit-switch button").forEach(b =>
+      b.setAttribute("aria-pressed", b.dataset.unit === unit));
+    try { localStorage.setItem("heightUnit", unit); } catch (e) {}
+  }
+
+  document.querySelectorAll(".unit-switch button").forEach(b =>
+    b.addEventListener("click", () => setHeightUnit(b.dataset.unit)));
+  try { if (localStorage.getItem("heightUnit") === "ftin") setHeightUnit("ftin"); } catch (e) {}
+
+  const MACROS = [
+    { key: "p", name: "Protein", pct: 0.30, kcalPerGram: 4, color: "var(--series-1)" },
+    { key: "c", name: "Carbs",   pct: 0.40, kcalPerGram: 4, color: "var(--series-2)" },
+    { key: "f", name: "Fat",     pct: 0.30, kcalPerGram: 9, color: "var(--series-3)" },
+  ];
+
+  const BMI_MIN = 14, BMI_MAX = 40;
+  const BMI_BANDS = [
+    { name: "Underweight", from: BMI_MIN, to: 18.5, range: "below 18.5", color: "var(--status-warning)" },
+    { name: "Normal",      from: 18.5,    to: 25,   range: "18.5 – 24.9", color: "var(--status-good)" },
+    { name: "Overweight",  from: 25,      to: 30,   range: "25 – 29.9",   color: "var(--status-serious)" },
+    { name: "Obese",       from: 30,      to: BMI_MAX, range: "30 and above", color: "var(--status-critical)" },
+  ];
+
+  function renderCalories(bmr, tdee, target) {
+    const rows = [
+      ["BMR (at rest)", bmr, "Calories burned at complete rest", true],
+      ["Maintenance", tdee, "Calories to keep your current weight", true],
+      ["Daily target", target, "Calories to eat for your goal", false],
+    ];
+    const max = Math.max(bmr, tdee, target);
+    $("calChart").innerHTML = rows.map(([label, kcal, desc, muted]) => `
+      <div class="bar-row" data-tip="${label}: ${fmt(kcal)} kcal. ${desc}">
+        <span>${label}</span>
+        <div class="bar-track"><div class="bar${muted ? " muted" : ""}" style="width:${kcal / max * 100}%"></div></div>
+        <span class="bar-value">${fmt(kcal)} kcal</span>
+      </div>`).join("");
+  }
+
+  function renderMacros(target) {
+    $("macroLegend").innerHTML = MACROS.map(m =>
+      `<span><i style="background:${m.color}"></i>${m.name}</span>`).join("");
+    $("macroStack").innerHTML = MACROS.map(m => {
+      const kcal = target * m.pct;
+      const grams = kcal / m.kcalPerGram;
+      return `
+        <div class="stack-col" style="flex:${m.pct}"
+             data-tip="${m.name}: ${fmt(grams)} g · ${fmt(kcal)} kcal (${m.pct * 100}%)">
+          <div class="stack-seg" style="background:${m.color}"></div>
+          <div class="stack-label">${m.name} ${m.pct * 100}% · ${fmt(grams)} g</div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderBmi(bmi) {
+    const clamped = Math.min(Math.max(bmi, BMI_MIN), BMI_MAX);
+    // Keep the marker label inside the card at the extremes
+    const left = Math.min(Math.max((clamped - BMI_MIN) / (BMI_MAX - BMI_MIN) * 100, 3), 97);
+    $("bmiGauge").innerHTML = `
+      <div class="gauge-marker" style="left:${left}%"><b>${bmi.toFixed(1)}</b><i></i></div>
+      <div class="gauge-bands">
+        ${BMI_BANDS.map(b => `
+          <div class="gauge-band" style="flex:${b.to - b.from}" data-tip="${b.name}: BMI ${b.range}">
+            <div style="background:${b.color}"></div>
+            <span>${b.name}</span>
+          </div>`).join("")}
+      </div>`;
+  }
+
+  // Hover tooltips for any chart element with data-tip
+  document.addEventListener("mousemove", e => {
+    const el = e.target.closest("[data-tip]");
+    const tip = $("tip");
+    if (!el) { tip.hidden = true; return; }
+    tip.textContent = el.dataset.tip;
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = (e.clientY + 16) + "px";
+  });
+
+  function bmiCategory(bmi) {
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal";
+    if (bmi < 30) return "Overweight";
+    return "Obese";
+  }
+
+  // Each snack gets 10% of the day's calories; meals split the rest evenly
+  const SNACK_SHARE = 0.10;
+
+  function renderMeals(target, choice) {
+    const [meals, snacks] = choice.split(",").map(Number);
+    const snackKcal = target * SNACK_SHARE;
+    const mealKcal = (target - snackKcal * snacks) / meals;
+
+    const row = (name, kcal) => `
+      <tr><td>${name}</td><td>${fmt(kcal)} kcal</td>
+        ${MACROS.map(m => `<td>${fmt(kcal * m.pct / m.kcalPerGram)} g</td>`).join("")}</tr>`;
+
+    let rows = "";
+    for (let i = 1; i <= meals; i++) rows += row(meals === 1 ? "Meal" : `Meal ${i}`, mealKcal);
+    for (let i = 1; i <= snacks; i++) rows += row(snacks === 1 ? "Snack" : `Snack ${i}`, snackKcal);
+    $("mealRows").innerHTML = rows;
+
+    $("mealSub").textContent = snacks
+      ? `Each snack is about 10% of your daily target; meals share the rest evenly.`
+      : `Your daily target split evenly across ${meals} meal${meals === 1 ? "" : "s"}.`;
+  }
+
+  const goalType = goal => goal < 0 ? "lose" : goal > 0 ? "gain" : "maintain";
+
+  // ---------- Stickers ----------
+  function renderStickers({ bmi, goal, activity, meals, snacks, floored }) {
+    const s = [];
+    const cat = bmiCategory(bmi);
+    if (cat === "Normal") s.push(["💚", "Healthy BMI", "t-green"]);
+    else if (cat === "Underweight") s.push(["🌱", "Time to build up", "t-yellow"]);
+    else if (cat === "Overweight") s.push(["🏃", "Keep moving", "t-orange"]);
+    else s.push(["💪", "Every step counts", "t-pink"]);
+
+    s.push({
+      lose: ["🔥", "Fat-burn mode", "t-orange"],
+      maintain: ["⚖️", "Balance keeper", "t-blue"],
+      gain: ["🏋️", "Bulk-up mode", "t-pink"],
+    }[goalType(goal)]);
+
+    if (activity >= 1.725) s.push(["⚡", "Super active", "t-yellow"]);
+    else if (activity >= 1.55) s.push(["👟", "Active lifestyle", "t-green"]);
+    else s.push(["🚶", "Try a daily walk", "t-blue"]);
+
+    if (snacks > 0) s.push(["🍎", "Smart snacker", "t-green"]);
+    else if (meals >= 5) s.push(["⏰", "Little & often", "t-yellow"]);
+    else if (meals === 3) s.push(["🍽️", "Classic 3 meals", "t-blue"]);
+
+    s.push(["🥜", "Go nuts (a handful)", "t-orange"]);
+    if (floored) s.push(["⚠️", "Minimum calories applied", "t-yellow"]);
+
+    const tilts = [-3, 2, -1.5, 3, -2, 1.5];
+    $("stickers").innerHTML = s.map(([emoji, text, tint], i) =>
+      `<span class="sticker ${tint}" style="--tilt:${tilts[i % tilts.length]}deg">
+         <span class="emoji">${emoji}</span>${text}</span>`).join("");
+  }
+
+  // ---------- Meal ideas ----------
+  const FOOD_IDEAS = {
+    lose: {
+      Breakfast: ["Greek yogurt with berries", "Veggie omelette", "Small bowl of overnight oats"],
+      Lunch: ["Grilled chicken salad", "Lentil soup", "Tuna & veggie wrap"],
+      Dinner: ["Baked fish with steamed veg", "Chicken stir-fry (light oil)", "Tofu & vegetable curry"],
+      Snack: ["Apple + 10 almonds", "Carrots & hummus", "Cottage cheese"],
+    },
+    maintain: {
+      Breakfast: ["Oatmeal with banana & walnuts", "Eggs on whole-grain toast", "Yogurt & fruit smoothie"],
+      Lunch: ["Chicken & rice bowl", "Whole-grain sandwich & salad", "Bean & veggie chili"],
+      Dinner: ["Salmon, potatoes & greens", "Pasta with lean mince & veg", "Chickpea curry with rice"],
+      Snack: ["Handful of mixed nuts", "Fruit & yogurt", "Boiled eggs"],
+    },
+    gain: {
+      Breakfast: ["Peanut butter toast & banana", "Oats with milk, nuts & honey", "Eggs, avocado & toast"],
+      Lunch: ["Beef or chicken rice bowl", "Pasta with chicken & olive oil", "Daal with rice & ghee"],
+      Dinner: ["Salmon, rice & avocado", "Steak with potatoes", "Paneer curry with naan"],
+      Snack: ["Trail mix", "Banana & oat milkshake", "Cheese & crackers"],
+    },
+  };
+  const FOOD_CARDS = [
+    ["Breakfast", "🍳", "t-yellow"],
+    ["Lunch", "🥗", "t-green"],
+    ["Dinner", "🍲", "t-orange"],
+    ["Snack", "🍎", "t-pink"],
+  ];
+
+  function renderFoodIdeas(goal) {
+    const ideas = FOOD_IDEAS[goalType(goal)];
+    $("foodIdeas").innerHTML = FOOD_CARDS.map(([meal, emoji, tint]) => `
+      <div class="food-card ${tint}">
+        <h3>${emoji} ${meal}</h3>
+        <ul>${ideas[meal].map(f => `<li>${f}</li>`).join("")}</ul>
+      </div>`).join("");
+  }
+
+  // ---------- Nuts chart ----------
+  // Per 28 g (1 oz, about a small handful)
+  const NUTS = [
+    { name: "Cashews",    kcal: 157, p: 5.2, c: 8.6, f: 12.4 },
+    { name: "Pistachios", kcal: 159, p: 5.7, c: 7.7, f: 12.8 },
+    { name: "Peanuts",    kcal: 161, p: 7.3, c: 4.6, f: 14.0 },
+    { name: "Almonds",    kcal: 164, p: 6.0, c: 6.1, f: 14.2 },
+    { name: "Walnuts",    kcal: 185, p: 4.3, c: 3.9, f: 18.5 },
+    { name: "Pecans",     kcal: 196, p: 2.6, c: 3.9, f: 20.4 },
+    { name: "Macadamias", kcal: 204, p: 2.2, c: 3.9, f: 21.5 },
+  ];
+  const NUT_PICKS = {
+    lose: ["Pistachios", "Almonds"],       // lower calorie, more protein & fiber
+    maintain: ["Almonds", "Walnuts"],      // balanced, heart-healthy fats
+    gain: ["Macadamias", "Peanuts"],       // energy-dense / high protein
+  };
+
+  function renderNuts(goal, snackKcal) {
+    const picks = NUT_PICKS[goalType(goal)];
+    const max = Math.max(...NUTS.map(n => n.kcal));
+
+    $("nutLegend").innerHTML = MACROS.map(m =>
+      `<span><i style="background:${m.color}"></i>${m.name}</span>`).join("") +
+      `<span><span class="pick">⭐ Pick</span> best for your goal</span>`;
+
+    $("nutChart").innerHTML = NUTS.map(n => {
+      const grams = { p: n.p, c: n.c, f: n.f };
+      const macroKcal = MACROS.map(m => grams[m.key] * m.kcalPerGram);
+      const sum = macroKcal.reduce((a, b) => a + b, 0);
+      // Scale segments so the bar length equals the nut's listed calories
+      const segs = MACROS.map((m, i) =>
+        `<div style="width:${macroKcal[i] / sum * n.kcal / max * 100}%;background:${m.color}"></div>`).join("");
+      const isPick = picks.includes(n.name);
+      return `
+        <div class="nut-row" data-tip="${n.name} (28 g): ${n.kcal} kcal · protein ${n.p} g · carbs ${n.c} g · fat ${n.f} g">
+          <span class="nut-name">${n.name}${isPick ? ' <span class="pick">⭐ Pick</span>' : ""}</span>
+          <div class="nut-bar">${segs}</div>
+          <span class="bar-value">${n.kcal} kcal</span>
+        </div>`;
+    }).join("");
+
+    $("nutSub").textContent = "Calories per 28 g handful, split by macro." +
+      (snackKcal ? ` Your snacks are about ${fmt(snackKcal)} kcal each — about ${fmt(snackKcal / 170 * 28)} g of nuts.` : "");
+  }
+
+  $("calc").addEventListener("click", () => {
+    const sex = $("sex").value;
+    const age = parseFloat($("age").value);
+    const weight = parseFloat($("weight").value);
+    const height = heightInCm();
+    const activity = parseFloat($("activity").value);
+    const goal = parseFloat($("goal").value);
+
+    if (!(age > 0) || !(weight > 0) || !(height > 0)) {
+      $("error").textContent = "Please enter valid age, weight and height.";
+      $("results").style.display = "none";
+      return;
+    }
+    $("error").textContent = "";
+
+    // Mifflin-St Jeor
+    const bmr = 10 * weight + 6.25 * height - 5 * age + (sex === "male" ? 5 : -161);
+    const tdee = bmr * activity;
+    const minCalories = sex === "male" ? 1500 : 1200;
+    const target = Math.max(tdee + goal, minCalories);
+    const bmi = weight / (height / 100) ** 2;
+
+    $("bmi").textContent = bmi.toFixed(1);
+    $("bmiCat").textContent = bmiCategory(bmi);
+    $("bmr").textContent = Math.round(bmr) + " kcal";
+    $("tdee").textContent = Math.round(tdee) + " kcal";
+    $("target").textContent = Math.round(target) + " kcal";
+
+    // Macro split: protein & carbs = 4 kcal/g, fat = 9 kcal/g
+    for (const { key, pct, kcalPerGram } of MACROS) {
+      const kcal = target * pct;
+      $(key + "G").textContent = Math.round(kcal / kcalPerGram) + " g";
+      $(key + "C").textContent = Math.round(kcal) + " kcal";
+    }
+
+    renderCalories(bmr, tdee, target);
+    renderMacros(target);
+    renderBmi(bmi);
+    renderMeals(target, $("meals").value);
+
+    const [meals, snacks] = $("meals").value.split(",").map(Number);
+    const floored = tdee + goal < minCalories;
+    renderStickers({ bmi, goal, activity, meals, snacks, floored });
+    renderFoodIdeas(goal);
+    renderNuts(goal, snacks ? target * SNACK_SHARE : 0);
+
+    $("results").style.display = "block";
+  });
+</script>
+</body>
+</html>
